@@ -1,9 +1,9 @@
-from argparse import ArgumentParser, ArgumentTypeError
+from argparse import ArgumentParser
+from shared import valid_port
 import socket
 import sys
 
-PORT_MIN: int = 1024
-PORT_MAX: int = 64_000
+
 SOCKADDR_I: int = 4  # index of sockaddr returned by getaddrinfo
 
 
@@ -20,22 +20,13 @@ def get_ipv4_addr(addr: str, port: int) -> str:
     return ipv4_addr
 
 
-def valid_port(port: str) -> int:
-    """Validates a given port number"""
-    port_int: int = int(port)
-    if not PORT_MIN <= port_int <= PORT_MAX:
-        raise ArgumentTypeError(f"{port} is not a valid port number")
-    return port_int
-
-
 def main():
     parser = ArgumentParser(description="...")
-
     parser.add_argument("address", help="ip address or hostname of server")
     parser.add_argument("port", type=valid_port, help="server port")
     parser.add_argument("filename", help="name of file to be retrieved from server")
-
     args = parser.parse_args()
+
     port: int = args.port
     ipv4_addr: str = get_ipv4_addr(args.address, port)
     sockfd: socket.socket = socket.socket()
