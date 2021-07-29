@@ -39,7 +39,7 @@ def main():
     port: int = args.port
     ipv4_addr: str = get_ipv4_addr(args.address, port)
     sockfd: socket.socket = socket.socket()
-    sockfd.connect((ipv4_addr, port))   
+    sockfd.connect((ipv4_addr, port))
 
 
 if __name__ == "__main__":
