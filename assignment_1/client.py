@@ -12,7 +12,7 @@ def create_file_request(filename: str) -> bytes:
     file_request |= 1 << 16
     encoded_filename: bytes = filename.encode("utf-8")
     file_request |= len(encoded_filename) << 24  # TODO constrain
-    file_request |= int.from_bytes(encoded_filename, byteorder="big") << 40
+    file_request |= int.from_bytes(encoded_filename, "big") << 40
     return file_request.to_bytes(byte_len(file_request), "big")
 
 
