@@ -36,6 +36,7 @@ def create_file_response(filename: str) -> bytes:
         file: TextIOWrapper = open(
             os.path.join(os.path.dirname(__file__), filename), "rb"
         )
+        file_response |= 1 << 24
     except FileNotFoundError:
         pass
 

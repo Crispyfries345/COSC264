@@ -5,6 +5,21 @@ import sys
 
 
 SOCKADDR_I: int = 4  # index of sockaddr returned by getaddrinfo
+MAX_FILE_RESPONSE: int = 4096
+
+
+def parse_file_response(file_response: bytes):
+    """Parses a file response"""
+    fr_int: int = int.from_bytes(file_response, "big")
+    if not fr_int & 0xFFFF == MAGIC_NO:
+        pass
+    if not (fr_int >> 16) & 0xFF == 2:
+        pass
+    if not (fr_int >> 24) & 0xFF == 1:
+        pass
+    data_len: int = (fr_int >> 32) & 0xFFFFFFFF
+    file_data: int = fr_int >> 64
+    pass
 
 
 def create_file_request(filename: str) -> bytes:
@@ -42,7 +57,8 @@ def main():
     sockfd.connect((ipv4_addr, port))
     file_request: bytes = create_file_request(args.filename)
     sockfd.send(file_request)
-    pass
+    file_response: bytes = sockfd.recv(MAX_FILE_RESPONSE)
+    parse_file_response(file_response)
 
 
 if __name__ == "__main__":
