@@ -3,6 +3,7 @@ from argparse import ArgumentTypeError
 PORT_MIN: int = 1024
 PORT_MAX: int = 64_000
 MAGIC_NO: int = 0x497E
+SOCKET_TIMEOUT: int = 1
 
 
 def valid_port(port: str) -> int:

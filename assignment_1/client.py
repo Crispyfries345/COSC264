@@ -1,15 +1,17 @@
-from argparse import ArgumentParser
-from shared import valid_port, byte_len, MAGIC_NO
+from argparse import ArgumentParser, Namespace
+from shared import valid_port, byte_len, MAGIC_NO, SOCKET_TIMEOUT
 import socket
 import sys
+import os
 
 
 SOCKADDR_I: int = 4  # index of sockaddr returned by getaddrinfo
 MAX_FILE_RESPONSE: int = 4096
+FILE_RESPONSE_HEADER_S: int = 8  # size in bytes
 
 
-def parse_file_response(file_response: bytes):
-    """Parses a file response"""
+def validate_resp_h(file_response: bytes) -> int:
+    """Validates the FileResponse header, returning the length of the file data"""
     fr_int: int = int.from_bytes(file_response, "big")
     if not fr_int & 0xFFFF == MAGIC_NO:
         pass
@@ -18,8 +20,34 @@ def parse_file_response(file_response: bytes):
     if not (fr_int >> 24) & 0xFF == 1:
         pass
     data_len: int = (fr_int >> 32) & 0xFFFFFFFF
+    if not data_len:
+        pass
+    return data_len
+
+
+def store_file_response(conn: socket.socket, filename: str):
+    """Parses a file response"""
+    file_response: bytes = conn.recv(MAX_FILE_RESPONSE)
+    data_len: int = validate_resp_h(file_response)
+    fr_int = int.from_bytes(file_response, "big")
+    try:
+        os.mkdir(os.path.join(os.path.dirname(__file__), "client_files"))
+    except FileExistsError:
+        pass
+    file = open(os.path.join(os.path.dirname(__file__), "client_files", filename), "wb")
+    file_size: int = len(file_response) - FILE_RESPONSE_HEADER_S
     file_data: int = fr_int >> 64
-    pass
+    file.write(file_data.to_bytes(byte_len(file_data), "big"))
+    file_response = conn.recv(MAX_FILE_RESPONSE)
+    while file_response:
+        file_size += len(file_response)
+        file.write(file_response)
+        file_response = conn.recv(MAX_FILE_RESPONSE)
+
+    if file_size != data_len:
+        pass
+
+    file.close()
 
 
 def create_file_request(filename: str) -> bytes:
@@ -44,21 +72,27 @@ def get_ipv4_addr(addr: str, port: int) -> str:
     return ipv4_addr
 
 
-def main():
+def parse_args() -> Namespace:
+    """Parses the relevant arguments"""
     parser = ArgumentParser(description="...")
     parser.add_argument("address", help="ip address or hostname of server")
     parser.add_argument("port", type=valid_port, help="server port")
     parser.add_argument("filename", help="name of file to be retrieved from server")
-    args = parser.parse_args()
+    return parser.parse_args()
 
+
+def main():
+
+    args = parse_args()
     port: int = args.port
+    filename: str = args.filename
     ipv4_addr: str = get_ipv4_addr(args.address, port)
     sockfd: socket.socket = socket.socket()
+    sockfd.settimeout(SOCKET_TIMEOUT)
     sockfd.connect((ipv4_addr, port))
-    file_request: bytes = create_file_request(args.filename)
+    file_request: bytes = create_file_request(filename)
     sockfd.send(file_request)
-    file_response: bytes = sockfd.recv(MAX_FILE_RESPONSE)
-    parse_file_response(file_response)
+    store_file_response(sockfd, filename)
 
 
 if __name__ == "__main__":
