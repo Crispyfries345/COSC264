@@ -1,5 +1,12 @@
 from argparse import ArgumentParser, Namespace
-from shared import valid_port, byte_len, sock_recv, MAGIC_NO, SOCKET_TIMEOUT
+from shared import (
+    valid_port,
+    byte_len,
+    sock_recv,
+    MAGIC_NO,
+    SOCKET_TIMEOUT,
+    FILE_RESPONSE_HEADER_S,
+)
 import socket
 import sys
 import os
@@ -7,20 +14,30 @@ import os
 
 SOCKADDR_I: int = 4  # index of sockaddr returned by getaddrinfo
 MAX_FILE_RESPONSE: int = 4096
-FILE_RESPONSE_HEADER_S: int = 8  # size in bytes
+FILE_RESPONSE_TYPE: int = 2
+VALID_STATUS_CODE: int = 1
 
 
 def validate_resp_h(file_response: bytes) -> int:
     """Validates the FileResponse header, returning the length of the file data"""
     fr_int: int = int.from_bytes(file_response, "big")
-    if not fr_int & 0xFFFF == MAGIC_NO:
-        pass
-    if not (fr_int >> 16) & 0xFF == 2:
-        pass
-    if not (fr_int >> 24) & 0xFF == 1:
-        pass
+    magic_no: int = fr_int & 0xFFFF
+    fr_type: int = (fr_int >> 16) & 0xFF
+    status_code: int = (fr_int >> 24) & 0xFF
     data_len: int = (fr_int >> 32) & 0xFFFFFFFF
-    if not data_len:
+
+    if not magic_no == MAGIC_NO:
+        raise ValueError(
+            f"The received magic number ({magic_no:#x}) does not match {MAGIC_NO:#x}"
+        )
+    if not fr_type == FILE_RESPONSE_TYPE:
+        raise ValueError(
+            f"The type of the file transaction ({fr_type}) is not a file response ({FILE_RESPONSE_TYPE})"
+        )
+    if not status_code == VALID_STATUS_CODE:
+        raise ValueError(f"File does not exist on server")
+
+    if not data_len:  # TODO FIX
         pass
     return data_len
 
@@ -52,6 +69,7 @@ def store_file_response(conn: socket.socket, filename: str) -> int:
 
 
 def create_file_request(filename: str) -> bytes:
+    """Creates a FileRequest byte array"""
     file_request: int = MAGIC_NO
     file_request |= 1 << 16
     encoded_filename: bytes = filename.encode("utf-8")
@@ -68,8 +86,7 @@ def get_ipv4_addr(addr: str, port: int) -> str:
             addr, port, family=socket.AF_INET, type=socket.SOCK_STREAM
         )[0][SOCKADDR_I][0]
     except socket.gaierror as exc:
-        print(exc)
-        sys.exit(1)
+        sys.exit(exc)
     return ipv4_addr
 
 
@@ -83,17 +100,26 @@ def parse_args() -> Namespace:
 
 
 def main():
-
+    """Main function"""
     args = parse_args()
     port: int = args.port
     filename: str = args.filename
     ipv4_addr: str = get_ipv4_addr(args.address, port)
-    sockfd: socket.socket = socket.socket()
+    try:
+        sockfd: socket.socket = socket.socket()
+    except OSError as err:
+        sys.exit(err)
     sockfd.settimeout(SOCKET_TIMEOUT)
-    sockfd.connect((ipv4_addr, port))
+    try:
+        sockfd.connect((ipv4_addr, port))
+    except OSError as err:
+        sys.exit(err)
     file_request: bytes = create_file_request(filename)
     sockfd.send(file_request)
-    data_len: int = store_file_response(sockfd, filename)
+    try:
+        data_len: int = store_file_response(sockfd, filename)
+    except Exception as err:
+        sys.exit(err)
     print(f'Received the file "{filename}" of size {data_len} bytes')
 
 
