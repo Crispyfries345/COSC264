@@ -34,7 +34,7 @@ def create_file_response(filename: str) -> bytes:
 
     try:
         file: TextIOWrapper = open(
-            os.path.join(os.path.dirname(__file__), filename), "rb"
+            os.path.join(os.path.dirname(__file__), "server_files", filename), "rb"
         )
         file_response |= 1 << 24
     except FileNotFoundError:
@@ -49,25 +49,35 @@ def create_file_response(filename: str) -> bytes:
 
 
 def main():
-    parser = ArgumentParser(description="...")
+    parser = ArgumentParser(description="File transfer server")
     parser.add_argument("port", type=valid_port, help="server port")
     args = parser.parse_args()
 
-    sockfd: socket.socket = socket.socket()
-    sockfd.bind(("", args.port))
-    sockfd.listen()
+    try:
+        sockfd: socket.socket = socket.socket()
+    except OSError as err:
+        sys.exit(err)
+
+    try:
+        sockfd.bind(("", args.port))
+        sockfd.listen()
+    except OSError as err:
+        sockfd.close()
+        sys.exit(err)
+
     while True:
         conn: socket.socket
         addr: tuple[str, int]
         conn, addr = sockfd.accept()
-        conn.settimeout(SOCKET_TIMEOUT)
-        print(f"{dt.datetime.utcnow()} - {addr[0]}:{addr[1]}")
-        data: bytes = conn.recv(MAX_FILE_REQUEST)
-        filename: str = parse_file_request(data)
-        file_response: bytes = create_file_response(filename)
-        conn.send(file_response)
-        conn.close()
-        print(f"{len(file_response)}")
+        with conn:
+            conn.settimeout(SOCKET_TIMEOUT)
+            print(f"{dt.datetime.utcnow()} - {addr[0]}:{addr[1]}")
+            data: bytes = conn.recv(MAX_FILE_REQUEST)
+            filename: str = parse_file_request(data)
+            file_response: bytes = create_file_response(filename)
+            conn.send(file_response)
+            conn.close()
+            print(f"{len(file_response)}")
 
 
 if __name__ == "__main__":

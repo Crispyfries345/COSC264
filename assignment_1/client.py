@@ -25,8 +25,8 @@ def validate_resp_h(file_response: bytes) -> int:
     return data_len
 
 
-def store_file_response(conn: socket.socket, filename: str):
-    """Parses a file response"""
+def store_file_response(conn: socket.socket, filename: str) -> int:
+    """Parses a file response, returning the size of the received data"""
     file_response: bytes = conn.recv(MAX_FILE_RESPONSE)
     data_len: int = validate_resp_h(file_response)
     fr_int = int.from_bytes(file_response, "big")
@@ -48,6 +48,7 @@ def store_file_response(conn: socket.socket, filename: str):
         pass
 
     file.close()
+    return data_len
 
 
 def create_file_request(filename: str) -> bytes:
@@ -74,7 +75,7 @@ def get_ipv4_addr(addr: str, port: int) -> str:
 
 def parse_args() -> Namespace:
     """Parses the relevant arguments"""
-    parser = ArgumentParser(description="...")
+    parser = ArgumentParser(description="File-transfer client")
     parser.add_argument("address", help="ip address or hostname of server")
     parser.add_argument("port", type=valid_port, help="server port")
     parser.add_argument("filename", help="name of file to be retrieved from server")
@@ -92,7 +93,8 @@ def main():
     sockfd.connect((ipv4_addr, port))
     file_request: bytes = create_file_request(filename)
     sockfd.send(file_request)
-    store_file_response(sockfd, filename)
+    data_len: int = store_file_response(sockfd, filename)
+    print(f'Received the file "{filename}" of size {data_len} bytes')
 
 
 if __name__ == "__main__":
