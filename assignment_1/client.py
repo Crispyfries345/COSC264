@@ -1,5 +1,5 @@
 from argparse import ArgumentParser, Namespace
-from shared import valid_port, byte_len, MAGIC_NO, SOCKET_TIMEOUT
+from shared import valid_port, byte_len, sock_recv, MAGIC_NO, SOCKET_TIMEOUT
 import socket
 import sys
 import os
@@ -27,7 +27,7 @@ def validate_resp_h(file_response: bytes) -> int:
 
 def store_file_response(conn: socket.socket, filename: str) -> int:
     """Parses a file response, returning the size of the received data"""
-    file_response: bytes = conn.recv(MAX_FILE_RESPONSE)
+    file_response: bytes = sock_recv(conn, MAX_FILE_RESPONSE)
     data_len: int = validate_resp_h(file_response)
     fr_int = int.from_bytes(file_response, "big")
     try:
@@ -38,11 +38,11 @@ def store_file_response(conn: socket.socket, filename: str) -> int:
     file_size: int = len(file_response) - FILE_RESPONSE_HEADER_S
     file_data: int = fr_int >> 64
     file.write(file_data.to_bytes(byte_len(file_data), "big"))
-    file_response = conn.recv(MAX_FILE_RESPONSE)
+    file_response = sock_recv(conn, MAX_FILE_RESPONSE)
     while file_response:
         file_size += len(file_response)
         file.write(file_response)
-        file_response = conn.recv(MAX_FILE_RESPONSE)
+        file_response = sock_recv(conn, MAX_FILE_RESPONSE)
 
     if file_size != data_len:
         pass

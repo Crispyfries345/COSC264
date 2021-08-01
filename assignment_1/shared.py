@@ -1,4 +1,6 @@
 from argparse import ArgumentTypeError
+import socket
+import sys
 
 PORT_MIN: int = 1024
 PORT_MAX: int = 64_000
@@ -17,3 +19,12 @@ def valid_port(port: str) -> int:
 def byte_len(int_: int) -> int:
     """Number of bytes to allocate for an integer"""
     return (int_.bit_length() + 7) // 8
+
+
+def sock_recv(conn: socket.socket, response_len: int) -> bytes:
+    try:
+        file_response: bytes = conn.recv(response_len)
+    except socket.timeout as err:
+        conn.close()
+        sys.exit(err)
+    return file_response

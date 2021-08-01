@@ -1,7 +1,7 @@
 from argparse import ArgumentParser
 from io import TextIOWrapper
 import socket
-from shared import valid_port, byte_len, MAGIC_NO, SOCKET_TIMEOUT
+from shared import valid_port, byte_len, sock_recv, MAGIC_NO, SOCKET_TIMEOUT
 import datetime as dt
 import os
 import sys
@@ -72,7 +72,7 @@ def main():
         with conn:
             conn.settimeout(SOCKET_TIMEOUT)
             print(f"{dt.datetime.utcnow()} - {addr[0]}:{addr[1]}")
-            data: bytes = conn.recv(MAX_FILE_REQUEST)
+            data: bytes = sock_recv(conn, MAX_FILE_REQUEST)
             filename: str = parse_file_request(data)
             file_response: bytes = create_file_response(filename)
             conn.send(file_response)
