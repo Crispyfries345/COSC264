@@ -26,15 +26,15 @@ def validate_resp_h(file_response: bytes) -> int:
     status_code: int = (fr_int >> 24) & 0xFF
     data_len: int = (fr_int >> 32) & 0xFFFFFFFF
 
-    if not magic_no == MAGIC_NO:
+    if magic_no != MAGIC_NO:
         raise ValueError(
             f"The received magic number ({magic_no:#x}) does not match {MAGIC_NO:#x}"
         )
-    if not fr_type == FILE_RESPONSE_TYPE:
+    if fr_type != FILE_RESPONSE_TYPE:
         raise ValueError(
             f"The type of the file transaction ({fr_type}) is not a file response ({FILE_RESPONSE_TYPE})"
         )
-    if not status_code == VALID_STATUS_CODE:
+    if status_code != VALID_STATUS_CODE:
         raise ValueError(f"File does not exist on server")
 
     if not data_len:  # TODO FIX
