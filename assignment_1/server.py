@@ -51,7 +51,7 @@ def parse_file_request(file_request: bytes) -> str:
 def create_file_response(filename: str) -> bytes:
     """Creates a FileResponse byte array"""
     file_response: int = MAGIC_NO
-    file_response |= 2 << 16
+    file_response |= 2 << 16  # TODO lsb first!
 
     try:
         filepath: str = os.path.join(
