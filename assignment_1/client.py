@@ -1,4 +1,5 @@
 from argparse import ArgumentParser, Namespace
+import io
 from shared import (
     valid_port,
     sock_recv,
@@ -40,8 +41,6 @@ def validate_resp_h(file_response: bytes) -> int:
     if status_code != VALID_STATUS_CODE:
         raise ValueError(f"File does not exist on server")
 
-    if not data_len:  # TODO FIX
-        pass
     return data_len
 
 
@@ -53,18 +52,24 @@ def store_file_response(conn: socket.socket, filename: str) -> int:
         os.mkdir(os.path.join(os.path.dirname(__file__), "client_files"))
     except FileExistsError:
         pass
-    file = open(os.path.join(os.path.dirname(__file__), "client_files", filename), "wb")
+    file: io.BufferedWriter = open(
+        os.path.join(os.path.dirname(__file__), "client_files", filename), "wb"
+    )
+    tmp_f: io.BytesIO = io.BytesIO()
     file_size: int = len(file_response) - FILE_RESPONSE_HEADER_S
-    file.write(file_response[8:])
+    tmp_f.write(file_response[8:])
     file_response = sock_recv(conn, MAX_FILE_RESPONSE)
     while file_response:
         file_size += len(file_response)
-        file.write(file_response)
+        tmp_f.write(file_response)
         file_response = sock_recv(conn, MAX_FILE_RESPONSE)
 
     if file_size != data_len:
-        pass
+        raise ValueError(
+            f"The file size specified in the header ({data_len}) differs from the actual data size ({file_size})"
+        )
 
+    file.write(tmp_f.getbuffer())
     file.close()
     return data_len
 
@@ -85,12 +90,9 @@ def create_file_request(filename: str) -> bytearray:
 def get_ipv4_addr(addr: str, port: int) -> str:
     """Gets an IPv4 address for a given address and port,
     performing a DNS lookup if address is a hostname"""
-    try:
-        ipv4_addr: str = socket.getaddrinfo(
-            addr, port, family=socket.AF_INET, type=socket.SOCK_STREAM
-        )[0][SOCKADDR_I][0]
-    except socket.gaierror as exc:
-        sys.exit(exc)
+    ipv4_addr: str = socket.getaddrinfo(
+        addr, port, family=socket.AF_INET, type=socket.SOCK_STREAM
+    )[0][SOCKADDR_I][0]
     return ipv4_addr
 
 
@@ -108,15 +110,15 @@ def main():
     args = parse_args()
     port: int = args.port
     filename: str = args.filename
-    ipv4_addr: str = get_ipv4_addr(args.address, port)
     try:
+        ipv4_addr: str = get_ipv4_addr(args.address, port)
         sockfd: socket.socket = socket.socket()
     except OSError as err:
         sys.exit(err)
     sockfd.settimeout(SOCKET_TIMEOUT)
     try:
         sockfd.connect((ipv4_addr, port))
-    except OSError as err:
+    except Exception as err:
         sys.exit(err)
     file_request: bytearray = create_file_request(filename)
     sockfd.send(file_request)

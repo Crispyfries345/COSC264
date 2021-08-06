@@ -14,6 +14,7 @@ import sys
 # max FileRequest in bytes. Next-largest power of two from the 1029 max request size
 MAX_FILE_REQUEST: int = 2048
 FILE_REQUEST_TYPE: int = 1
+FILENAME_MAX: int = 1024
 
 
 def parse_file_request(file_request: bytes) -> str:
@@ -30,9 +31,9 @@ def parse_file_request(file_request: bytes) -> str:
         raise ValueError(
             f"The type of the file transaction ({fr_type}) is not a file request ({FILE_REQUEST_TYPE})"
         )
-    if not 1 <= filename_len_h <= 1024:
+    if not 1 <= filename_len_h <= FILENAME_MAX:
         raise ValueError(
-            f"The length of the filename ({filename_len_h}) must be between 1 and 1024"  # TODO const
+            f"The length of the filename ({filename_len_h}) must be between 1 and {FILENAME_MAX}"
         )
 
     filename: bytes = file_request[5:]
