@@ -3,11 +3,9 @@ from io import TextIOWrapper
 import socket
 from shared import (
     valid_port,
-    byte_len,
     sock_recv,
     MAGIC_NO,
     SOCKET_TIMEOUT,
-    FILE_RESPONSE_HEADER_S,
 )
 import datetime as dt
 import os
@@ -20,10 +18,9 @@ FILE_REQUEST_TYPE: int = 1
 
 def parse_file_request(file_request: bytes) -> str:
     """Parses the FileRequest and returns the requested filename"""
-    fr_int: int = int.from_bytes(file_request, "big")
-    magic_no: int = fr_int & 0xFFFF
-    fr_type: int = (fr_int >> 16) & 0xFF
-    filename_len_h: int = (fr_int >> 24) & 0xFFFF
+    magic_no: int = (file_request[0] << 8) | file_request[1]
+    fr_type: int = file_request[2]
+    filename_len_h: int = (file_request[3] << 8) | file_request[4]
 
     if magic_no != MAGIC_NO:
         raise ValueError(
@@ -38,8 +35,7 @@ def parse_file_request(file_request: bytes) -> str:
             f"The length of the filename ({filename_len_h}) must be between 1 and 1024"  # TODO const
         )
 
-    filename_raw: int = fr_int >> 40
-    filename: bytes = filename_raw.to_bytes(byte_len(filename_raw), "big")
+    filename: bytes = file_request[5:]
     filename_len: int = len(filename)
     if filename_len != filename_len_h:
         raise ValueError(
@@ -48,10 +44,12 @@ def parse_file_request(file_request: bytes) -> str:
     return filename.decode("utf-8")
 
 
-def create_file_response(filename: str) -> bytes:
+def create_file_response(filename: str) -> bytearray:
     """Creates a FileResponse byte array"""
-    file_response: int = MAGIC_NO
-    file_response |= 2 << 16  # TODO lsb first!
+    file_response: bytearray = bytearray()
+    file_response.append(MAGIC_NO >> 8)
+    file_response.append(MAGIC_NO & 0xFF)
+    file_response.append(2)
 
     try:
         filepath: str = os.path.join(
@@ -59,18 +57,19 @@ def create_file_response(filename: str) -> bytes:
         )
         file: TextIOWrapper
         with open(filepath, "rb") as file:
-            file_response |= 1 << 24
+            file_response.append(1)
             file_bytes: bytes = file.read()
-            file_response |= len(file_bytes) << 32
-            file_response |= int.from_bytes(file_bytes, "big") << 64
+            data_length: int = len(file_bytes)
+            file_response.append(data_length >> 24)
+            file_response.append((data_length >> 16) & 0xFF)
+            file_response.append((data_length >> 8) & 0xFF)
+            file_response.append(data_length & 0xFF)
+            file_response += file_bytes
     except FileNotFoundError:
-        pass  # The rest of the bytes would remain 0
+        for _ in range(5):
+            file_response.append(0)
 
-    fr_byte_len: int = byte_len(file_response)
-    return file_response.to_bytes(
-        fr_byte_len if fr_byte_len > FILE_RESPONSE_HEADER_S else FILE_RESPONSE_HEADER_S,
-        "big",
-    )
+    return file_response
 
 
 def main():
@@ -100,7 +99,7 @@ def main():
             print(f"{dt.datetime.utcnow()} - {addr[0]}:{addr[1]}")
             data: bytes = sock_recv(conn, MAX_FILE_REQUEST)
             filename: str = parse_file_request(data)
-            file_response: bytes = create_file_response(filename)
+            file_response: bytearray = create_file_response(filename)
             conn.send(file_response)
             conn.close()
             print(f"{len(file_response)}")

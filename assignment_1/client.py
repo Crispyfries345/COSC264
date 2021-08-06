@@ -1,7 +1,6 @@
 from argparse import ArgumentParser, Namespace
 from shared import (
     valid_port,
-    byte_len,
     sock_recv,
     MAGIC_NO,
     SOCKET_TIMEOUT,
@@ -20,11 +19,15 @@ VALID_STATUS_CODE: int = 1
 
 def validate_resp_h(file_response: bytes) -> int:
     """Validates the FileResponse header, returning the length of the file data"""
-    fr_int: int = int.from_bytes(file_response, "big")
-    magic_no: int = fr_int & 0xFFFF
-    fr_type: int = (fr_int >> 16) & 0xFF
-    status_code: int = (fr_int >> 24) & 0xFF
-    data_len: int = (fr_int >> 32) & 0xFFFFFFFF
+    magic_no: int = (file_response[0] << 8) | file_response[1]
+    fr_type: int = file_response[2]
+    status_code: int = file_response[3]
+    data_len: int = (
+        (file_response[4] << 24)
+        | (file_response[5] << 16)
+        | (file_response[6] << 8)
+        | file_response[7]
+    )
 
     if magic_no != MAGIC_NO:
         raise ValueError(
@@ -46,15 +49,13 @@ def store_file_response(conn: socket.socket, filename: str) -> int:
     """Parses a file response, returning the size of the received data"""
     file_response: bytes = sock_recv(conn, MAX_FILE_RESPONSE)
     data_len: int = validate_resp_h(file_response)
-    fr_int = int.from_bytes(file_response, "big")
     try:
         os.mkdir(os.path.join(os.path.dirname(__file__), "client_files"))
     except FileExistsError:
         pass
     file = open(os.path.join(os.path.dirname(__file__), "client_files", filename), "wb")
     file_size: int = len(file_response) - FILE_RESPONSE_HEADER_S
-    file_data: int = fr_int >> 64
-    file.write(file_data.to_bytes(byte_len(file_data), "big"))
+    file.write(file_response[8:])
     file_response = sock_recv(conn, MAX_FILE_RESPONSE)
     while file_response:
         file_size += len(file_response)
@@ -68,14 +69,17 @@ def store_file_response(conn: socket.socket, filename: str) -> int:
     return data_len
 
 
-def create_file_request(filename: str) -> bytes:
+def create_file_request(filename: str) -> bytearray:
     """Creates a FileRequest byte array"""
-    file_request: int = MAGIC_NO
-    file_request |= 1 << 16
+    file_request: bytearray = bytearray()
+    file_request.append(MAGIC_NO >> 8)
+    file_request.append(MAGIC_NO & 0xFF)
+    file_request.append(1)
     encoded_filename: bytes = filename.encode("utf-8")
-    file_request |= len(encoded_filename) << 24  # TODO constrain
-    file_request |= int.from_bytes(encoded_filename, "big") << 40
-    return file_request.to_bytes(byte_len(file_request), "big")
+    filename_len: int = len(filename)
+    file_request.append(filename_len >> 8)
+    file_request.append(filename_len & 0xFF)
+    return file_request + encoded_filename
 
 
 def get_ipv4_addr(addr: str, port: int) -> str:
@@ -114,7 +118,7 @@ def main():
         sockfd.connect((ipv4_addr, port))
     except OSError as err:
         sys.exit(err)
-    file_request: bytes = create_file_request(filename)
+    file_request: bytearray = create_file_request(filename)
     sockfd.send(file_request)
     try:
         data_len: int = store_file_response(sockfd, filename)

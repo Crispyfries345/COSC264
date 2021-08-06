@@ -17,11 +17,6 @@ def valid_port(port: str) -> int:
     return port_int
 
 
-def byte_len(int_: int) -> int:
-    """Number of bytes to allocate for an integer"""
-    return (int_.bit_length() + 7) // 8
-
-
 def sock_recv(conn: socket.socket, response_len: int) -> bytes:
     try:
         file_response: bytes = conn.recv(response_len)
