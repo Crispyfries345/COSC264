@@ -2,10 +2,12 @@ from argparse import ArgumentParser
 from io import TextIOWrapper
 import socket
 from shared import (
+    FILE_RESPONSE_TYPE,
     valid_port,
     sock_recv,
     MAGIC_NO,
     SOCKET_TIMEOUT,
+    VALID_STATUS_CODE,
 )
 import datetime as dt
 import os
@@ -15,10 +17,16 @@ import sys
 MAX_FILE_REQUEST: int = 2048
 FILE_REQUEST_TYPE: int = 1
 FILENAME_MAX: int = 1024
+FILE_REQUEST_HEADER_S: int = 5  # size of the FileRequest header in bytes
 
 
 def parse_file_request(file_request: bytes) -> str:
     """Parses the FileRequest and returns the requested filename"""
+    packet_len: int = len(file_request)
+    if packet_len < FILE_REQUEST_HEADER_S:
+        raise ValueError(
+            f"The size of the received packet ({packet_len}B) is too small to be a FileRequest"
+        )
     magic_no: int = (file_request[0] << 8) | file_request[1]
     fr_type: int = file_request[2]
     filename_len_h: int = (file_request[3] << 8) | file_request[4]
@@ -50,7 +58,7 @@ def create_file_response(filename: str) -> bytearray:
     file_response: bytearray = bytearray()
     file_response.append(MAGIC_NO >> 8)
     file_response.append(MAGIC_NO & 0xFF)
-    file_response.append(2)
+    file_response.append(FILE_RESPONSE_TYPE)
 
     try:
         filepath: str = os.path.join(
@@ -58,7 +66,7 @@ def create_file_response(filename: str) -> bytearray:
         )
         file: TextIOWrapper
         with open(filepath, "rb") as file:
-            file_response.append(1)
+            file_response.append(VALID_STATUS_CODE)
             file_bytes: bytes = file.read()
             data_length: int = len(file_bytes)
             file_response.append(data_length >> 24)
@@ -67,8 +75,7 @@ def create_file_response(filename: str) -> bytearray:
             file_response.append(data_length & 0xFF)
             file_response += file_bytes
     except FileNotFoundError:
-        for _ in range(5):
-            file_response.append(0)
+        file_response += 5 * [0]
 
     return file_response
 
