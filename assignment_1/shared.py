@@ -6,7 +6,7 @@ PORT_MIN: int = 1024
 PORT_MAX: int = 64_000
 MAGIC_NO: int = 0x497E
 FILE_RESPONSE_TYPE: int = 2
-SOCKET_TIMEOUT: int = 1
+SOCKET_TIMEOUT: int = 1  # send/receive timeout in seconds
 VALID_STATUS_CODE: int = 1
 FILE_RESPONSE_HEADER_S: int = 8  # size in bytes
 

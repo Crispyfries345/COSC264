@@ -109,18 +109,22 @@ def main():
         with conn:
             conn.settimeout(SOCKET_TIMEOUT)
             print(f"{dt.datetime.utcnow()} - {addr[0]}:{addr[1]}")
-            data: bytes = sock_recv(conn, MAX_FILE_REQUEST)
-            filename: str = parse_file_request(data)
-            file_response: bytearray
-            file_successful: bool
-            file_response, file_successful = create_file_response(filename)
-            conn.send(file_response)
-            conn.close()
-            print(
-                f"FileResponse of size {len(file_response)}B was sent successfully"
-                if file_successful
-                else "FileResponse sent with invalid file status"
-            )
+            try:
+                data: bytes = sock_recv(conn, MAX_FILE_REQUEST)
+                filename: str = parse_file_request(data)
+            except Exception as err:
+                conn.close()
+            else:
+                file_response: bytearray
+                file_successful: bool
+                file_response, file_successful = create_file_response(filename)
+                conn.send(file_response)
+                conn.close()
+                print(
+                    f"FileResponse of size {len(file_response)}B was sent successfully"
+                    if file_successful
+                    else "FileResponse sent with invalid file status"
+                )
 
 
 if __name__ == "__main__":

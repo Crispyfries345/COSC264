@@ -76,6 +76,7 @@ def store_file_response(conn: socket.socket, filename: str) -> int:
         )
 
     file.write(tmp_f.getbuffer())
+    tmp_f.close()
     file.close()
     return data_len
 
@@ -129,12 +130,14 @@ def main():
     try:
         sockfd.connect((ipv4_addr, port))
     except Exception as err:
+        sockfd.close()
         sys.exit(err)
     file_request: bytearray = create_file_request(filename)
     sockfd.send(file_request)
     try:
         data_len: int = store_file_response(sockfd, filename)
     except Exception as err:
+        sockfd.close()
         sys.exit(err)
     print(f'Received the file "{filename}" of size {data_len} bytes')
 
