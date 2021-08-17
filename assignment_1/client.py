@@ -105,7 +105,9 @@ def get_ipv4_addr(addr: str, port: int) -> str:
 
 def parse_args() -> Namespace:
     """Parses the relevant arguments"""
-    parser = ArgumentParser(description="File-transfer client")
+    parser = ArgumentParser(
+        description="File-transfer client. Received files will be placed within a folder named 'client_files'"
+    )
     parser.add_argument("address", help="ip address or hostname of server")
     parser.add_argument("port", type=valid_port, help="server port")
     parser.add_argument("filename", help="name of file to be retrieved from server")

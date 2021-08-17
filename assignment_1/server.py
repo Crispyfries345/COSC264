@@ -86,7 +86,9 @@ def create_file_response(filename: str) -> Tuple[bytearray, bool]:
 
 def main():
     """Main function"""
-    parser = ArgumentParser(description="File transfer server")
+    parser = ArgumentParser(
+        description="File-transfer server. Files to be sent must be within a folder named 'server_files'"
+    )
     parser.add_argument("port", type=valid_port, help="server port")
     args = parser.parse_args()
 
@@ -101,7 +103,7 @@ def main():
     except OSError as err:
         sockfd.close()
         sys.exit(err)
-
+    print("Server started, waiting for clients...")
     while True:
         conn: socket.socket
         addr: tuple[str, int]
