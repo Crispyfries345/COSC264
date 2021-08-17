@@ -1,4 +1,5 @@
 from argparse import ArgumentParser
+from typing import Tuple
 from io import TextIOWrapper
 import socket
 from shared import (
@@ -53,8 +54,10 @@ def parse_file_request(file_request: bytes) -> str:
     return filename.decode("utf-8")
 
 
-def create_file_response(filename: str) -> bytearray:
-    """Creates a FileResponse byte array"""
+def create_file_response(filename: str) -> Tuple[bytearray, bool]:
+    """Creates a FileResponse byte array,
+    returning the array and a boolean describing if the file was sent successfully"""
+    file_successful: bool = False
     file_response: bytearray = bytearray()
     file_response.append(MAGIC_NO >> 8)
     file_response.append(MAGIC_NO & 0xFF)
@@ -74,10 +77,11 @@ def create_file_response(filename: str) -> bytearray:
             file_response.append((data_length >> 8) & 0xFF)
             file_response.append(data_length & 0xFF)
             file_response += file_bytes
+            file_successful = True
     except FileNotFoundError:
-        file_response += 5 * [0]
+        file_response += 5 * bytearray([0])
 
-    return file_response
+    return file_response, file_successful
 
 
 def main():
@@ -107,10 +111,16 @@ def main():
             print(f"{dt.datetime.utcnow()} - {addr[0]}:{addr[1]}")
             data: bytes = sock_recv(conn, MAX_FILE_REQUEST)
             filename: str = parse_file_request(data)
-            file_response: bytearray = create_file_response(filename)
+            file_response: bytearray
+            file_successful: bool
+            file_response, file_successful = create_file_response(filename)
             conn.send(file_response)
             conn.close()
-            print(f"{len(file_response)}")
+            print(
+                f"FileResponse of size {len(file_response)}B was sent successfully"
+                if file_successful
+                else "FileResponse sent with invalid file status"
+            )
 
 
 if __name__ == "__main__":
