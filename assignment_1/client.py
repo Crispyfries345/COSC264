@@ -1,11 +1,14 @@
 from argparse import ArgumentParser, Namespace
 import io
 from shared import (
+    FILE_RESPONSE_TYPE,
     valid_port,
     sock_recv,
     MAGIC_NO,
     SOCKET_TIMEOUT,
     FILE_RESPONSE_HEADER_S,
+    FILE_RESPONSE_TYPE,
+    VALID_STATUS_CODE,
 )
 import socket
 import sys
@@ -14,12 +17,15 @@ import os
 
 SOCKADDR_I: int = 4  # index of sockaddr returned by getaddrinfo
 MAX_FILE_RESPONSE: int = 4096
-FILE_RESPONSE_TYPE: int = 2
-VALID_STATUS_CODE: int = 1
 
 
 def validate_resp_h(file_response: bytes) -> int:
     """Validates the FileResponse header, returning the length of the file data"""
+    packet_len: int = len(file_response)
+    if packet_len < FILE_RESPONSE_HEADER_S:
+        raise ValueError(
+            f"The size of the received packet ({packet_len}B) is too small to be a FileResponse"
+        )
     magic_no: int = (file_response[0] << 8) | file_response[1]
     fr_type: int = file_response[2]
     status_code: int = file_response[3]
@@ -110,6 +116,10 @@ def main():
     args = parse_args()
     port: int = args.port
     filename: str = args.filename
+    if os.path.isfile(
+        os.path.join(os.path.dirname(__file__), "client_files", filename)
+    ):
+        sys.exit(f"{filename} already exists in client_files")
     try:
         ipv4_addr: str = get_ipv4_addr(args.address, port)
         sockfd: socket.socket = socket.socket()
