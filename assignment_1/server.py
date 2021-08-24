@@ -110,7 +110,7 @@ def main():
         conn, addr = sockfd.accept()
         with conn:
             conn.settimeout(SOCKET_TIMEOUT)
-            print(f"{dt.datetime.utcnow()} - {addr[0]}:{addr[1]}")
+            print(f"{dt.datetime.utcnow()} - {addr[0]}:{addr[1]} - ", end="")
             try:
                 data: bytes = sock_recv(conn, MAX_FILE_REQUEST)
                 filename: str = parse_file_request(data)
